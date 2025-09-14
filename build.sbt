@@ -1,8 +1,18 @@
 ThisBuild / scalaVersion := "3.7.1"
+// bring in the crossProject / Scala.js imports
 
-lazy val shared = project
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
+
+
+lazy val shared = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)       // common code lives in shared/src/main/scala
   .in(file("shared"))
   .settings(
+    name := "shared-domain",
+    version := "0.1-SNAPSHOT"
+  )
+  .jvmSettings(
+    // JVM-only artifacts
     libraryDependencies ++= Seq(
       "io.circe"        %% "circe-core"    % "0.14.14",
       "io.circe"        %% "circe-generic" % "0.14.14",
@@ -10,16 +20,30 @@ lazy val shared = project
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % "1.11.44"
     )
   )
-
+  .jsSettings(
+    // JS-only artifacts: note the %%%
+    libraryDependencies ++= Seq(
+      "io.circe"        %%% "circe-core"    % "0.14.14",
+      "io.circe"        %%% "circe-generic" % "0.14.14",
+      "com.softwaremill.sttp.tapir" %%% "tapir-core"       % "1.11.44",
+      "com.softwaremill.sttp.tapir" %%% "tapir-json-circe" % "1.11.44"
+    ),
+    scalaJSUseMainModuleInitializer := true
+  )
+// aliases for clarity
+lazy val sharedJvm = shared.jvm
+lazy val sharedJs  = shared.js
 lazy val server = project
   .in(file("server"))
-  .dependsOn(shared)
+  .dependsOn(sharedJvm)
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel"   %% "cats-effect"           % "3.6.3",
       "org.http4s"      %% "http4s-ember-server"   % "0.23.30",
       "org.http4s"      %% "http4s-dsl"            % "0.23.30",
       "org.http4s"      %% "http4s-circe"          % "0.23.30",
+      "io.kubernetes" % "client-java" % "24.0.0",
+
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.44"
     ),
     Compile / resourceGenerators += Def.task {
@@ -41,17 +65,19 @@ lazy val server = project
 lazy val client = project
   .in(file("client"))
   .enablePlugins(org.scalajs.sbtplugin.ScalaJSPlugin)
-  .dependsOn(shared)
+  .dependsOn(sharedJs)
   .settings(
     scalaJSUseMainModuleInitializer := true,
     libraryDependencies ++= Seq(
       "com.raquo"        %%% "laminar"            % "17.2.1",
       "com.softwaremill.sttp.client3" %%% "core"  % "3.9.0",
       "com.softwaremill.sttp.client3" %%% "circe" % "3.9.0",
+      "io.circe"        %%% "circe-core"    % "0.14.14",
+      "io.circe"        %%% "circe-generic" % "0.14.14",
     )
   )
 
 // Aggregate for convenience
 lazy val root = (project in file("."))
-  .aggregate(shared, server, client)
+  .aggregate(shared.jvm,shared.js, server, client)
   .settings(publish := {}, publishLocal := {})

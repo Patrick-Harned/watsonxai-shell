@@ -2,7 +2,7 @@ package org.ibm
 
 import cats.effect.*
 import cats.syntax.all.*
-import org.ibm.shared.HelloResponse
+import org.ibm.shared.{HelloResponse, WatsonxAIIFM}
 import org.http4s.{HttpApp, HttpRoutes, StaticFile}
 import org.http4s.dsl.io.*
 import org.http4s.ember.server.EmberServerBuilder
@@ -16,26 +16,24 @@ import sttp.tapir.server.http4s.*
 import com.comcast.ip4s.*
 import fs2.io.file.Path
 import sttp.tapir.server.ServerEndpoint
-
+import org.ibm.watsonxaiifm.Client
 import java.nio.file.Paths
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 object Main extends IOApp {
-
   // Toggle dev vs prod via -Ddev=true
   private val isDev: Boolean = sys.props.get("dev").contains("true")
-
-  // 1. Your Tapir endpoint
-  private val helloEndpoint: ServerEndpoint[Any, IO] =
+  private val watsonxAIIFMEndpoint: ServerEndpoint[Any, IO] =
     endpoint.get
-      .in("api" / "hello")
-      .out(jsonBody[HelloResponse])
-      .serverLogicSuccess(_ => IO.pure(HelloResponse("Hello, world!")))
+      .in("api" / "watsonxaiifm")
+      .out(jsonBody[WatsonxAIIFM])
+      .serverLogicSuccess(_ => {
+        val fm = Client.getWatsonxAIIFM
+        IO.pure(WatsonxAIIFM(fm.toString))
+      }   )
 
-  private val helloRoutes: HttpRoutes[IO] =
-    Http4sServerInterpreter[IO]().toRoutes(helloEndpoint)
-
+  private val watsonxAIIFMRoutes: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(watsonxAIIFMEndpoint)
   // 2a. Production: serve from classpath /web
   private val prodStaticRoutes: HttpRoutes[IO] =
     resourceServiceBuilder[IO]("/web")
@@ -67,9 +65,8 @@ object Main extends IOApp {
 
   // 4. Compose everything
   private val allRoutes: HttpRoutes[IO] =
-    helloRoutes <+>
       staticRoutes <+>
-      indexRoute
+      indexRoute <+> watsonxAIIFMRoutes
 
   private val httpApp: HttpApp[IO] = Router[IO](
     "/"    -> allRoutes

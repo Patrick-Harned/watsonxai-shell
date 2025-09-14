@@ -3,8 +3,63 @@
 <head>
     <meta charset="UTF-8" />
     <title>WatsonXai Shell</title>
+    <link href="https://cdn.jsdelivr.net/npm/@carbon/styles@1.88.0/css/styles.min.css" rel="stylesheet">
+    <!-- Carbon Theme & Components -->
+    <link
+            rel="stylesheet"
+            href="https://1.www.s81c.com/common/carbon/web-components/tag/next/themes.css"
+    />
+    <script
+            type="module"
+            src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/ui-shell.min.js"
+    ></script>
+    <script
+            type="module"
+            src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/search.min.js"
+    ></script>
+    <script
+            type="module"
+            src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/button.min.js"
+    ></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.35.0/tile.min.js"></script>
+    <link
+            rel="stylesheet"
+            href="https://1.www.s81c.com/common/carbon/web-components/tag/next/themes.css" />
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/textarea.min.js"></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/content-switcher.min.js"></script>
     <!-- This path matches your ResourceService basePath -->
     <script defer src="client-fastopt.js"></script>
+
+    <style>
+        .cds--content {
+          margin-left: 0;
+          padding: 2rem;
+          margin-top: 3rem; /* Account for header height */
+          transition: margin-left 0.11s cubic-bezier(0.2, 0, 1, 0.9);
+        }
+
+        .main-content {
+          max-width: 600px;
+          margin: 0 auto;
+        }
+
+        .tile-content h3 {
+          margin-bottom: 1rem;
+          color: #161616;
+        }
+
+        .status-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.5rem 0;
+          border-bottom: 1px solid #e0e0e0;
+        }
+
+        .status-row:last-child {
+          border-bottom: none;
+        }
+    </style>
+
 </head>
 <body>
 <div id="app"></div>

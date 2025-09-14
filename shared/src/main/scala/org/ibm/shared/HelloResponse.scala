@@ -1,8 +1,7 @@
 package org.ibm.shared
 
-
+import io.circe.generic.semiauto.*
 import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto._
 
 case class HelloResponse(message: String)
 
