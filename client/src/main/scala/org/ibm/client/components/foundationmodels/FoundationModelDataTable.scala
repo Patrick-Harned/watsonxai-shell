@@ -96,8 +96,8 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelDataTab
     )
 
     val tableConfig = TableConfig(
-      title = "Model Downloaders",
-      description = Some("Active model download pods with watsonxai/model=true label"),
+      title = "Custom Foundation Models",
+      description = Some("Custom Foundation Models loaded and registered"),
       batchActions = batchActions,
       searchable = true,
       selectable = true
@@ -120,7 +120,7 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelDataTab
             createFoundationModelModal.open()
           },
           downloadIcon,
-          " Download Model"
+          "Register a Model"
         ),
         cds"button"(
           strattr("kind") := "secondary",
