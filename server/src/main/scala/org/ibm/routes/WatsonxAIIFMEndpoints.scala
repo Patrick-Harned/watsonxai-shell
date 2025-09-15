@@ -46,7 +46,7 @@ object WatsonxAIIFMEndpoints {
         IO {
           try {
             println(s"Creating  model registration: ${request.model_id} with location class: ${request.location}")
-            Client.addCustomFoundationModelSafe(request) match {
+            Client.addCustomFoundationModel(request) match {
               case Success(model) =>
                 println(s"Successfully created  model registration: ${model}")
                 Client.getWatsonxAIIFM match {
