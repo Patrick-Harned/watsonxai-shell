@@ -3,6 +3,10 @@ ThisBuild / scalaVersion := "3.7.1"
 
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
+// In your build.sbt
+ThisBuild / scalacOptions ++= Seq(
+  "-Xmax-inlines", "64"  // or higher if needed
+)
 
 lazy val shared = crossProject(JVMPlatform, JSPlatform)
   .crossType(CrossType.Pure)       // common code lives in shared/src/main/scala
@@ -43,8 +47,10 @@ lazy val server = project
       "org.http4s"      %% "http4s-dsl"            % "0.23.30",
       "org.http4s"      %% "http4s-circe"          % "0.23.30",
       "io.kubernetes" % "client-java" % "24.0.0",
+   "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.20.0",
 
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.44"
+
+"com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.44"
     ),
     Compile / resourceGenerators += Def.task {
       // 1. Grab the actual Scala version string

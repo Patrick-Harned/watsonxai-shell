@@ -9,14 +9,21 @@
             rel="stylesheet"
             href="https://1.www.s81c.com/common/carbon/web-components/tag/next/themes.css"
     />
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.38.0/data-table.min.js"></script>
+
     <script
             type="module"
             src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/ui-shell.min.js"
     ></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.38.0/loading.min.js"></script>
+
     <script
             type="module"
             src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/search.min.js"
     ></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.38.0/grid.min.js"></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.38.0/modal.min.js"></script>
+
     <script
             type="module"
             src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/button.min.js"
@@ -29,36 +36,217 @@
     <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.36.0/content-switcher.min.js"></script>
     <!-- This path matches your ResourceService basePath -->
     <script defer src="client-fastopt.js"></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.38.0/tree-view.min.js"></script>
 
     <style>
         .cds--content {
-          margin-left: 0;
+          margin-left: 16rem; /* Account for sidebar width (~256px) */
           padding: 2rem;
           margin-top: 3rem; /* Account for header height */
           transition: margin-left 0.11s cubic-bezier(0.2, 0, 1, 0.9);
+          min-height: calc(100vh - 3rem);
         }
 
-        .main-content {
-          max-width: 600px;
-          margin: 0 auto;
+        /* Responsive adjustments for when sidebar collapses */
+        @media (max-width: 1056px) {
+          .cds--content {
+            margin-left: 3rem; /* Smaller margin when sidebar is rail mode */
+          }
         }
 
-        .tile-content h3 {
+        @media (max-width: 672px) {
+          .cds--content {
+            margin-left: 0; /* No margin on mobile when sidebar is overlay */
+            padding: 1rem; /* Less padding on mobile */
+          }
+        }
+
+        /* Constrain tile width for better readability */
+        .watsonx-tile {
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+          max-width: 100%; /* Don't exceed container */
+        }
+
+        .watsonx-details-tile {
+          max-width: 100%;
+        }
+
+        .tile-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           margin-bottom: 1rem;
+        }
+
+        .tile-badges {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .status-badge {
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.25rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+
+        .status-completed {
+          background-color: #24a148;
+          color: white;
+        }
+
+        .version-badge {
+          padding: 0.25rem 0.5rem;
+          background-color: #0f62fe;
+          color: white;
+          border-radius: 0.25rem;
+          font-size: 0.75rem;
+        }
+
+        .metric-row {
+          display: flex;
+          justify-content: space-between;
+          margin: 0.5rem 0;
+          padding: 0.25rem 0;
+        }
+
+        .metric-label {
+          font-weight: 500;
+          color: #525252;
+        }
+
+        .metric-value {
+          font-weight: 600;
           color: #161616;
         }
 
-        .status-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 0.5rem 0;
-          border-bottom: 1px solid #e0e0e0;
+        .expand-hint {
+          text-align: center;
+          color: #6f6f6f;
+          font-size: 0.875rem;
+          margin-top: 1rem;
+          font-style: italic;
         }
 
-        .status-row:last-child {
-          border-bottom: none;
+        .tree-container {
+          max-height: 600px;
+          overflow-y: auto;
+          border: 1px solid #e0e0e0;
+          padding: 1rem;
+          border-radius: 0.25rem;
+          background: #fafafa;
         }
+
+        .tree-node__header {
+          cursor: pointer;
+          padding: 0.25rem;
+          border-radius: 0.25rem;
+          margin: 0.125rem 0;
+        }
+
+        .tree-node__header:hover {
+          background-color: #e0e0e0;
+        }
+
+        .tree-node__icon--expanded {
+          transform: rotate(90deg);
+          transition: transform 0.2s ease;
+          display: inline-block;
+          margin-right: 0.5rem;
+        }
+
+        .tree-node__icon--collapsed {
+          transition: transform 0.2s ease;
+          display: inline-block;
+          margin-right: 0.5rem;
+        }
+
+        .tree-node__icon--leaf {
+          margin-right: 0.5rem;
+          opacity: 0.6;
+        }
+
+        .tree-node__key {
+          font-weight: 500;
+          color: #0f62fe;
+        }
+
+        .tree-node__separator {
+          margin: 0 0.25rem;
+        }
+
+        .tree-node__value {
+          color: #161616;
+        }
+
+        .tree-node__children {
+          margin-left: 1rem;
+          border-left: 1px solid #e0e0e0;
+          padding-left: 0.5rem;
+        }
+
+
+  /* Navigation active states */
+  .cds--side-nav__link--current {
+    background-color: #e0e0e0 !important;
+    font-weight: 600 !important;
+  }
+
+  .cds--side-nav__link--current::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: #0f62fe;
+  }
+
+  /* Content area adjustments */
+  .cds--content {
+    margin-left: 16rem;
+    padding: 2rem;
+    margin-top: 3rem;
+    transition: margin-left 0.11s cubic-bezier(0.2, 0, 1, 0.9);
+    min-height: calc(100vh - 3rem);
+  }
+
+  /* Page headers */
+  .cds--content h1 {
+    margin-bottom: 1.5rem;
+    color: #161616;
+    font-weight: 400;
+  }
+
+  /* Responsive navigation */
+  @media (max-width: 1056px) {
+    .cds--content {
+      margin-left: 3rem;
+    }
+  }
+
+  @media (max-width: 672px) {
+    .cds--content {
+      margin-left: 0;
+      padding: 1rem;
+    }
+  }
+
+  /* Navigation hover effects */
+  cds-side-nav-link:hover,
+  cds-side-nav-menu-item:hover {
+    background-color: #f4f4f4;
+  }
+
+  /* Menu icons styling */
+  cds-side-nav-link svg,
+  cds-side-nav-menu svg {
+    margin-right: 0.5rem;
+  }
+
     </style>
+
 
 </head>
 <body>

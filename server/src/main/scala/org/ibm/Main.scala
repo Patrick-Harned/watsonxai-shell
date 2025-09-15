@@ -2,44 +2,39 @@ package org.ibm
 
 import cats.effect.*
 import cats.syntax.all.*
-import org.ibm.shared.{HelloResponse, WatsonxAIIFM}
-import org.http4s.{HttpApp, HttpRoutes, StaticFile}
+import com.comcast.ip4s.*
+import fs2.io.file.Path
 import org.http4s.dsl.io.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits.*
 import org.http4s.server.Router
 import org.http4s.server.staticcontent.*
+import org.http4s.{HttpApp, HttpRoutes, StaticFile}
+import org.ibm.routes.WatsonxAIIFMEndpoints.watsonxAIIFMAllRoutes
+import org.ibm.routes.{ModelDownloaderEndpoints, PVCEndpoints, WatsonxAIIFMEndpoints}
+import org.ibm.shared.{ConsoleInfo, WatsonxAIIFM}
+import org.ibm.watsonxaiifm.{Client, ConsoleClient}
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import sttp.tapir.server.http4s.*
-import com.comcast.ip4s.*
-import fs2.io.file.Path
 import sttp.tapir.server.ServerEndpoint
-import org.ibm.watsonxaiifm.Client
-import java.nio.file.Paths
-import scala.concurrent.ExecutionContext
+import sttp.tapir.server.http4s.*
+
 import scala.util.Try
 
 object Main extends IOApp {
   // Toggle dev vs prod via -Ddev=true
   private val isDev: Boolean = sys.props.get("dev").contains("true")
-  private val watsonxAIIFMEndpoint: ServerEndpoint[Any, IO] =
-    endpoint.get
-      .in("api" / "watsonxaiifm")
-      .out(jsonBody[WatsonxAIIFM])
-      .serverLogicSuccess(_ => {
-        val fm = Client.getWatsonxAIIFM
-        IO.pure(WatsonxAIIFM(fm.toString))
-      }   )
 
-  private val watsonxAIIFMRoutes: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(watsonxAIIFMEndpoint)
-  // 2a. Production: serve from classpath /web
+
+
   private val prodStaticRoutes: HttpRoutes[IO] =
     resourceServiceBuilder[IO]("/web")
-      .withClassLoader(Try{getClass.getClassLoader}.toOption)
+      .withClassLoader(Try {
+        getClass.getClassLoader
+      }.toOption)
       .toRoutes
-
+  
 
 
   private val devStaticRoutes = HttpRoutes.of[IO] {
@@ -62,12 +57,35 @@ object Main extends IOApp {
         .fromResource("/web/index.html", Some(req))
         .getOrElseF(NotFound())
   }
+  // In your ModelDownloaderEndpoints
+  val getConsoleURLEndpoint: ServerEndpoint[Any, IO] =
+    endpoint.get
+      .in("api" / "watsonxai" / "console-url")
+      .out(jsonBody[ConsoleInfo])
+      .errorOut(stringBody)
+      .serverLogic { _ =>
+        IO {
+          try {
+            // Get console URL from cluster
+            val consoleUrl = ConsoleClient.getOpenShiftConsoleUrl
+            Right(ConsoleInfo(consoleUrl))
+          } catch {
+            case ex: Exception =>
+              println(s"Error getting console URL: ${ex.getMessage}")
+              Left(s"Failed to get console URL: ${ex.getMessage}")
+          }
+        }
+      }
+  val consoleUrlServerEndpoint =   Http4sServerInterpreter[IO]().toRoutes(getConsoleURLEndpoint)
 
   // 4. Compose everything
   private val allRoutes: HttpRoutes[IO] =
-      staticRoutes <+>
-      indexRoute <+> watsonxAIIFMRoutes
-
+    staticRoutes <+>
+      indexRoute <+>
+      watsonxAIIFMAllRoutes <+> // FIXED: Use the combined routes
+      PVCEndpoints.allWatsonxAIEndpoints <+>
+      ModelDownloaderEndpoints.allModelDownloaderEndpoints <+>
+      consoleUrlServerEndpoint
   private val httpApp: HttpApp[IO] = Router[IO](
     "/"    -> allRoutes
   ).orNotFound

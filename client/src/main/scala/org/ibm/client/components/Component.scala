@@ -7,5 +7,5 @@ import org.scalajs.dom
 
 trait Component {
   def strattr(string: String) = htmlAttr(string, StringAsIsCodec)
-  def render: ReactiveHtmlElement.Base
+  //def render: ReactiveHtmlElement.Base
 }

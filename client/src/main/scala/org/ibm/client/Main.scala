@@ -1,31 +1,56 @@
 package org.ibm.client
 
 import com.raquo.laminar.api.L.*
+import org.ibm.client.components.foundationmodels.FoundationModelDataTable
+import org.ibm.client.components.modeldownloads.ModelDownloaderDataTable
+import org.ibm.client.components.pvcs.PVCDataTable
 import org.ibm.client.components.{UIShell, WatsonxAIIFMTile}
-import org.ibm.shared.HelloResponse
-import sttp.client3.*
-import sttp.client3.circe.*
-import sttp.client3.FetchBackend
+import org.ibm.client.routes.{Route, Router}
 import org.scalajs.dom
-import sttp.capabilities.WebSockets
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 
 object Main {
 
   def main(args: Array[String]): Unit = {
+    // Setup browser history listener
+    Router.setupHistoryListener()
 
-
-    // 3. Mount your Laminar UI with `render` instead of renderOnDom
+    // Mount the app
     render(
       dom.document.getElementById("app"),
       appElement
     )
   }
 
-  private def appElement =
+  private def appElement = {
     div(
-      Seq(UIShell.render, WatsonxAIIFMTile.render),
+      UIShell.render,
+
+      // Main content area that changes based on route
+      div(
+        className := "cds--content",
+        child <-- Router.currentRouteSignal.map(renderPage)
+      )
     )
+  }
+
+  private def renderPage(route: Route): Element = {
+    route match {
+      case Route.Dashboard =>
+        div(
+          h1("WatsonX AI Dashboard"),
+          WatsonxAIIFMTile.render
+        )
+      case Route.ModelDownloads =>
+        ModelDownloaderDataTable.render
+      case Route.PVCs =>
+        PVCDataTable.render
+      case Route.CustomFoundationModels => FoundationModelDataTable.render
+      case Route.Models =>
+        div(
+          h1("Foundation Models"),
+          p("Foundation models management coming soon...")
+          // TODO: Implement ModelsDataTable
+        )
+    }
+  }
 }
