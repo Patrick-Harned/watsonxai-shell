@@ -4,7 +4,7 @@ import cats.effect.IO
 import io.circe.generic.auto.*
 import org.http4s.HttpRoutes
 import org.ibm.shared.{CreateModelDownloaderRequest, ModelDownloaderPod}
-import org.ibm.modeldownloader.ModelDownloaderClient
+import org.ibm.watsonxaiifm.ModelDownloaderClient
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*

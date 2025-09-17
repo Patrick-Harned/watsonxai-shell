@@ -3,7 +3,7 @@ package org.ibm.client.components.pvcs
 import com.raquo.laminar.api.L.*
 import com.raquo.laminar.api.L.svg
 import org.ibm.client.components.{Component, CreatePVCModal, DeletePVCModal, cds}
-import org.ibm.client.components.datatable.{BatchAction, TableConfig, TableRow, toDataTable}
+import org.ibm.client.components.datatable.{BatchAction, DataTable, TableConfig, TableRow}
 import org.ibm.client.components.notifications.NotificationManager
 import org.ibm.client.components.skeleton.SkeletonComponents
 import org.ibm.client.components.reactive.ReactiveComponent
@@ -15,15 +15,16 @@ import sttp.client3.circe.*
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-object PVCDataTable extends ReactiveComponent[List[PVC]] {
+case class PVCDataRow(
+                       kind: String,
+                       name: String,
+                       storageClass: String,
+                       status: String,
+                       capacity: String
+                     )
+object PVCDataTable extends ReactiveComponent[List[PVC]] with DataTable[PVCDataRow]{
 
-  case class PVCDataRow(
-                         kind: String,
-                         name: String,
-                         storageClass: String,
-                         status: String,
-                         capacity: String
-                       )
+
 
   // Create modal instances once
   val createPVCModal = CreatePVCModal.apply(
@@ -120,7 +121,7 @@ object PVCDataTable extends ReactiveComponent[List[PVC]] {
       ),
 
       // Data table
-      dataRows.toDataTable(tableConfig)
+      render(dataRows, tableConfig)
     )
   }
 
@@ -225,4 +226,12 @@ object PVCDataTable extends ReactiveComponent[List[PVC]] {
       "Settings"
     )
   )
+
+  /**
+   * Abstract method to be implemented by concrete DataTable instances.
+   * This provides a unique key for the root `cds-table` element,
+   * which helps Laminar and Carbon Web Components manage their lifecycle
+   * and prevents state bleeding when switching between different table views.
+   */
+  override protected def getTableKey: String = "pvc-data-table"
 }

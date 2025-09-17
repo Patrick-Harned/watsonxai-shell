@@ -7,12 +7,21 @@ import org.scalajs.dom
 import scala.scalajs.js
 
 
-object DataTable extends Component {
+trait DataTable[T] extends Component {
 
-  def render[T](
-                 data: List[T],
-                 config: TableConfig
-               )(using converter: ToTableRow[T]): Element = {
+  /**
+   * Abstract method to be implemented by concrete DataTable instances.
+   * This provides a unique key for the root `cds-table` element,
+   * which helps Laminar and Carbon Web Components manage their lifecycle
+   * and prevents state bleeding when switching between different table views.
+   */
+  protected def getTableKey: String
+
+
+  def render(
+              data: List[T],
+              config: TableConfig
+            )(using converter: ToTableRow[T]): Element = {
 
     val selectedRowsVar = Var(Set.empty[String])
     val searchTermVar = Var("")
@@ -34,9 +43,12 @@ object DataTable extends Component {
     }
 
     val selectedRowsSignal = selectedRowsVar.signal
-    val hasSelectedRows = selectedRowsSignal.map(_.nonEmpty)
+    // val hasSelectedRows = selectedRowsSignal.map(_.nonEmpty) // This var is unused, can remove if not used elsewhere
 
     cds"table"(
+      // *** THE CRUCIAL FIX: Add a unique key to the root cds-table element ***
+      strattr("key") := getTableKey,
+
       strattr("locale") := "en",
       strattr("size") := "lg",
 
@@ -63,16 +75,16 @@ object DataTable extends Component {
             // based on row selection, so we don't need to manually set ?active
             config.batchActions.map { action =>
               cds"button"(
-                strattr("data-context") := "data-table",
+                strattr("data-context") := "data-table", // Important for Carbon to find its associated table
                 onClick --> { _ =>
-                  // Query Carbon's internal selection state directly
-                  val tableElement = dom.document.querySelector("cds-table").asInstanceOf[js.Dynamic]
-                  // Get selected row IDs from Carbon
+                  // Query Carbon's internal selection state directly from the *current* cds-table instance
+                  // We need to query by ID or ref, but querying the document for the first `cds-table` might be sufficient
+                  // if you only have one DataTable rendered at a time in the main content area.
+                  // If you ever render multiple DataTables on a single page, this query would need to be more specific.
+                  val tableElement = dom.document.querySelector(s"cds-table[key='${getTableKey}']").asInstanceOf[js.Dynamic]
 
                   val selectedIds = if (tableElement != null && tableElement._selectedRows != null) {
                     val selectedElements = tableElement._selectedRows.asInstanceOf[js.Array[dom.Element]]
-
-                    // Extract selection-name attribute from each selected element
                     selectedElements.map { element =>
                       element.getAttribute("selection-name")
                     }.filter(_ != null).toSet
@@ -80,11 +92,11 @@ object DataTable extends Component {
                     Set.empty[String]
                   }
 
-                  println(s"Carbon selected IDs: $selectedIds") // Debug line
+                  println(s"Carbon selected IDs for ${getTableKey}: $selectedIds") // Debug line
 
                   // Find the corresponding TableRow objects
                   val selectedRows = tableRows.filter(row => selectedIds.contains(row.id))
-                  println(s"Found ${selectedRows} selected rows") // Debug line
+                  println(s"Found ${selectedRows.size} selected rows for ${getTableKey}") // Debug line
 
                   action.handler(selectedRows)
                 },
@@ -107,7 +119,7 @@ object DataTable extends Component {
             )
           } else emptyNode,
 
-          // Add button (optional)
+          // Add button (optional) - you might want to make this configurable too
           cds"button"(
             "Add New"
           )
@@ -145,7 +157,7 @@ object DataTable extends Component {
                               row: TableRow,
                               columns: List[TableColumn],
                               selectable: Boolean,
-                              selectedRowsVar: Var[Set[String]]
+                              selectedRowsVar: Var[Set[String]] // This var is unused in this method
                             ): Element = {
     cds"table-row"(
       // The selection-name attribute tells Carbon this row can be selected
@@ -165,12 +177,5 @@ object DataTable extends Component {
       case Some(v) => v.toString
       case None => ""
     }
-  }
-}
-
-// Extension method for easy usage
-extension [T]( data: List[T]) {
-  def toDataTable(config: TableConfig)(using converter: ToTableRow[T]): Element = {
-    DataTable.render(data, config)
   }
 }

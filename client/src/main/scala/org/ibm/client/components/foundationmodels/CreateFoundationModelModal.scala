@@ -4,7 +4,7 @@ import com.raquo.laminar.api.L.*
 import org.ibm.client.components.notifications.NotificationManager
 import org.ibm.client.components.{Component, cds}
 import org.ibm.shared._
-import org.ibm.tel.components.Modal
+import org.ibm.tel.components.Modal // Assuming this is your Modal component
 import sttp.capabilities.WebSockets
 import sttp.client3.*
 import sttp.client3.circe.*
@@ -12,25 +12,33 @@ import io.circe.Json
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import java.time.Instant
+import java.util.UUID
+import org.scalajs.dom // Explicitly import dom
+import scala.scalajs.js // Explicitly import js for dynamic casting
+
 
 class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
 
   val backend: SttpBackend[Future, WebSockets] = FetchBackend()
 
-  // Form fields - Updated for CustomFoundationModel
-  val modelIdVar = Var("")
-  val subPathVar = Var("")
-  val pvcNameVar = Var("") // Changed to match pvc_name
+  // Form fields
+  val selectedModelIdVar = Var[Option[String]](None) // New: Tracks the ID of the selected DownloadedModel
+  val modelIdVar = Var("") // User-editable Model ID (can be auto-populated)
+  val subPathVar = Var("") // User-editable Sub Path (can be auto-populated)
+  val pvcNameVar = Var("") // User-editable PVC Name (can be auto-populated)
   val tagsVar = Var("") // Tags as comma-separated string for UI
   val parametersVar = Var[List[ModelParameter]](List.empty)
 
   // State
   val isSubmittingVar = Var(false)
   val pvcs = Var[List[PVC]](List.empty)
+  val downloadedModels = Var[List[DownloadedModel]](List.empty) // New: List of downloaded models
   val errorVar = Var[Option[String]](None)
   val isLoadingPvcs = Var(true)
+  val isLoadingDownloadedModels = Var(true) // New: Loading state for downloaded models
 
-  // Parameter management
+  // Parameter management (no change)
   case class ParameterTemplate(
                                 name: String,
                                 paramType: String, // "string", "number"
@@ -65,14 +73,56 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
         case Right(pvcsResponse) =>
           pvcs.set(pvcsResponse)
           isLoadingPvcs.set(false)
-          if (pvcsResponse.nonEmpty && pvcNameVar.now().isEmpty) {
-            pvcNameVar.set(pvcsResponse.head.metadata.name)
-          }
+        // Don't auto-select PVC here, it will be handled by model selection or user override
         case Left(err) =>
           errorVar.set(Some(s"Failed to load PVCs: $err"))
           isLoadingPvcs.set(false)
       }
   }
+
+  // New: Fetch downloaded models from your backend
+  def fetchDownloadedModels(): Unit = {
+    isLoadingDownloadedModels.set(true)
+    basicRequest
+      .get(uri"/api/downloaded_models") // <--- Your new API endpoint
+      .response(asJson[List[DownloadedModel]])
+      .send(backend)
+      .map(_.body)
+      .foreach {
+        case Right(modelsResponse) =>
+          // Filter for COMPLETED models only
+          println("found models")
+          println(modelsResponse)
+          downloadedModels.set(modelsResponse)
+          isLoadingDownloadedModels.set(false)
+        case Left(err) =>
+          errorVar.set(Some(s"Failed to load downloaded models: $err"))
+          isLoadingDownloadedModels.set(false)
+      }
+  }
+
+  // New: Handler for when a model is selected from the dropdown
+  def onModelSelect(selectedId: String): Unit = {
+    selectedModelIdVar.set(Some(selectedId))
+    downloadedModels.now().find(_.id == selectedId).foreach { model =>
+      // 4. Normalize model name logic
+      val modelRepoParts = model.modelRepo.split("_", 2) // Split only on the first underscore
+      // val huggingFaceRepoOwner = modelRepoParts.headOption.getOrElse("") // Unused, can remove
+      val actualModelName = modelRepoParts.lift(1).getOrElse(model.modelRepo) // Fallback to full repo if no underscore
+
+      // 5. In a typical scenario, localDirName is the model name itself
+      val recoveredLocalDirName = if (model.localDirName == "unknown" || model.localDirName.isEmpty) {
+        actualModelName
+      } else {
+        model.localDirName
+      }
+
+      modelIdVar.set(model.modelRepo) // Full normalized repo name for model_id
+      subPathVar.set(recoveredLocalDirName) // Use recovered local directory name
+      pvcNameVar.set(model.pvcName) // Auto-populate PVC name
+    }
+  }
+
 
   def validateForm(): Option[String] = {
     val modelId = modelIdVar.now().trim
@@ -86,9 +136,9 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
     } else if (pvcName.isEmpty) {
       Some("PVC selection is required")
     } else if (!modelId.matches("^[a-zA-Z0-9][a-zA-Z0-9/_.-]*[a-zA-Z0-9]$")) {
-      Some("Model ID contains invalid characters")
+      Some("Model ID contains invalid characters. Use alphanumeric, _, ., - only, and start/end with alphanumeric.")
     } else {
-      // Validate parameters
+      // Validate parameters (no change)
       val params = parametersVar.now()
       val maxBatchSize = params.find(_.name == "max_batch_size").flatMap(p =>
         getDoubleFromJson(p.default))
@@ -112,17 +162,18 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
     }
   }
 
-  // Helper method to extract double from Json
+  // Helper method to extract double from Json (no change)
   def getDoubleFromJson(json: Json): Option[Double] = {
     json.asNumber.map(x => x.toDouble).orElse(json.asString.flatMap(_.toDoubleOption))
   }
 
-  // Helper method to get string from Json
+  // Helper method to get string from Json (no change)
   def getStringFromJson(json: Json): String = {
     json.asString.getOrElse(json.asNumber.map(_.toString).getOrElse(""))
   }
 
   def resetForm(): Unit = {
+    selectedModelIdVar.set(None) // New: Clear selected model
     modelIdVar.set("")
     subPathVar.set("")
     pvcNameVar.set("")
@@ -131,6 +182,7 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
     errorVar.set(None)
   }
 
+  // Parameter management methods (no change)
   def addParameter(template: ParameterTemplate): Unit = {
     val currentParams = parametersVar.now()
     if (!currentParams.exists(_.name == template.name)) {
@@ -181,8 +233,8 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
         val request = CustomFoundationModel(
           model_id = modelIdVar.now().trim,
           location = ModelLocation(
-            pvc_name = pvcNameVar.now().trim, // Note: pvc_name not pvcName
-            sub_path = subPathVar.now().trim   // Note: sub_path not subPath
+            pvc_name = pvcNameVar.now().trim,
+            sub_path = subPathVar.now().trim
           ),
           tags = tags,
           parameters = parametersVar.now()
@@ -229,19 +281,62 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
       case None => emptyNode
     },
 
-    // Model ID input
+    // --- NEW: Downloaded Model Selection Dropdown ---
+    div(
+      className := "cds--form-item",
+      cds"dropdown"(
+        strattr("title-text") := "Select Downloaded Model",
+        strattr("helper-text") := "Choose a previously downloaded model to pre-populate registration fields.",
+        strattr("label") := "Downloaded Model",
+        // 1. Set the value attribute directly from the signal
+        strattr("value") <-- selectedModelIdVar.signal.map(_.getOrElse("")),
+        // 2. Listen to the custom event emitted by cds-dropdown
+        eventProp[dom.CustomEvent]("cds-dropdown-selected").map { event =>
+          val detail = event.detail.asInstanceOf[js.Dynamic]
+          val selectedValue = detail.item.value.asInstanceOf[String]
+          selectedValue
+        } --> onModelSelect,
+        // *** START FIX: Combine signals for unified rendering ***
+        children <-- Signal.combine(isLoadingDownloadedModels.signal, downloadedModels.signal, selectedModelIdVar.signal).map {
+          case (isLoading, models, selectedModelId) =>
+            if (isLoading) {
+              List(cds"dropdown-item"(value := "", disabled := true, "Loading models..."))
+            } else if (models.isEmpty && !isLoading) {
+              List(cds"dropdown-item"(value := "", disabled := true, "No downloaded models found"))
+            } else {
+              // Add a default "Select a model..." option if nothing is selected
+              val defaultOption = if (selectedModelId.isEmpty) {
+                List(cds"dropdown-item"(value := "", disabled := true, selected := true, "Select a model..."))
+              } else {
+                List.empty[HtmlElement]
+              }
+              // Render actual model items
+              val modelOptions = models.map { model =>
+                cds"dropdown-item"(
+                  value := model.id,
+                  s"${model.modelRepo} (PVC: ${model.pvcName}, Path: ${model.localDirName})"
+                )
+              }
+              defaultOption ++ modelOptions
+            }
+        }
+        // *** END FIX: Combine signals for unified rendering ***
+      )
+    ),
+
+    // Model ID input (now can be auto-populated and overridden)
     div(
       className := "cds--form-item",
       label(
         className := "cds--label",
         forId := "model-id",
-        "Model ID"
+        "Model ID (HuggingFace Repo)"
       ),
       input(
         className := "cds--text-input",
         typ := "text",
         idAttr := "model-id",
-        placeholder := "e.g. TheBloke/CapybaraHermes-2.5-Mistral-7B-GPTQ",
+        placeholder := "e.g. TheBloke/Mistral-7B-Instruct-v0.2-GGU",
         controlled(
           value <-- modelIdVar,
           onInput.mapToValue --> modelIdVar
@@ -249,23 +344,23 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
       ),
       div(
         className := "cds--form__helper-text",
-        "Unique identifier for your foundation model"
+        "Unique identifier for your foundation model, usually the HuggingFace repository name."
       )
     ),
 
-    // Sub Path input
+    // Sub Path input (now can be auto-populated and overridden)
     div(
       className := "cds--form-item",
       label(
         className := "cds--label",
         forId := "sub-path",
-        "Sub Path"
+        "Sub Path (Model Directory)"
       ),
       input(
         className := "cds--text-input",
         typ := "text",
         idAttr := "sub-path",
-        placeholder := "e.g. CapybaraHermes-2.5-Mistral-7B-GPTQ",
+        placeholder := "e.g. Mistral-7B-Instruct-v0.2-GGU",
         controlled(
           value <-- subPathVar,
           onInput.mapToValue --> subPathVar
@@ -273,76 +368,37 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
       ),
       div(
         className := "cds--form__helper-text",
-        "Directory path within the PVC where the model is stored"
+        "Directory path within the PVC where the model is stored. Typically the model's short name."
       )
     ),
 
-    // PVC Selection dropdown
+    // PVC Selection input (now can be auto-populated and overridden)
+    // We'll use a standard Carbon text input here as the dropdown is for *downloaded models*
+    // If you want a dropdown for PVCs, that's a separate component.
     div(
       className := "cds--form-item",
       label(
         className := "cds--label",
-        forId := "pvc-selection",
+        forId := "pvc-name-input",
         "Storage PVC"
       ),
-      div(
-        className := "cds--select",
-        child <-- Signal.combine(
-          pvcs.signal,
-          isLoadingPvcs.signal
-        ).map { case (pvcList, isLoading) =>
-          if (isLoading) {
-            select(
-              className := "cds--select-input",
-              idAttr := "pvc-selection",
-              disabled := true,
-              option(value := "", "Loading PVCs...")
-            )
-          } else if (pvcList.isEmpty) {
-            select(
-              className := "cds--select-input",
-              idAttr := "pvc-selection",
-              disabled := true,
-              option(value := "", "No PVCs available")
-            )
-          } else {
-            select(
-              className := "cds--select-input",
-              idAttr := "pvc-selection",
-              controlled(
-                value <-- pvcNameVar,
-                onChange.mapToValue --> pvcNameVar
-              ),
-              option(
-                value := "",
-                disabled := true,
-                "Select PVC for storage"
-              ),
-              pvcList.map { pvc =>
-                option(
-                  value := pvc.metadata.name,
-                  pvc.metadata.name
-                )
-              }
-            )
-          }
-        },
-        svg.svg(
-          svg.className := "cds--select__arrow",
-          svg.width := "16",
-          svg.height := "16",
-          svg.viewBox := "0 0 16 16",
-          svg.fill := "currentColor",
-          svg.path(svg.d := "m8 11L3 6l0.7-0.7L8 9.6l4.3-4.3L13 6z")
+      input(
+        className := "cds--text-input",
+        typ := "text",
+        idAttr := "pvc-name-input",
+        placeholder := "e.g. model-storage",
+        controlled(
+          value <-- pvcNameVar,
+          onInput.mapToValue --> pvcNameVar
         )
       ),
       div(
         className := "cds--form__helper-text",
-        "PVC where the model files are stored"
+        "The Persistent Volume Claim where the model files are stored. This can be pre-filled from downloaded models."
       )
     ),
 
-    // Tags input
+    // Tags input (no change)
     div(
       className := "cds--form-item",
       label(
@@ -366,7 +422,7 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
       )
     ),
 
-    // Parameters section
+    // Parameters section (no change, other than `children <--` for options)
     div(
       className := "cds--form-item",
       label(
@@ -389,7 +445,6 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
               }
             },
             option(value := "", "Select parameter to add..."),
-            // FIXED: Use children <-- instead of child <-- for lists
             children <-- parametersVar.signal.map { currentParams =>
               availableParameters
                 .filterNot(template => currentParams.exists(_.name == template.name))
@@ -450,8 +505,8 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
                         color := "#6f6f6f",
                         template.map(t => s"- ${t.description}").getOrElse("")
                       )
-                    ),
-
+                    )
+                    ,
                     button(
                       className := "cds--btn cds--btn--sm cds--btn--ghost",
                       onClick --> { _ => removeParameter(param.name) },
@@ -478,7 +533,6 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
                             onChange.mapToValue --> { value =>
                               updateParameterValue(param.name, value)
                             },
-                            // FIXED: Use option instead of optionTag
                             t.options.get.map { optionValue =>
                               option(
                                 value := optionValue,
@@ -512,7 +566,7 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
 
                     template.flatMap(_.max).map { max =>
                       span(
-                        fontSize := "0.75rem",
+                        fontSize := "0.875rem",
                         color := "#6f6f6f",
                         s"Max: $max"
                       )
@@ -526,7 +580,7 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
       )
     ),
 
-    // Modal footer
+    // Modal footer (no change)
     cds"modal-footer"(
       cds"modal-footer-button"(
         strattr("kind") := "secondary",
@@ -551,10 +605,10 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
     )
   )
 
-  // Create the modal with the form as content
+  // Create the modal with the form as content (no change)
   private lazy val modal = new Modal(
     title = "Register Foundation Model",
-    subtitle = "Register a custom foundation model with WatsonX AI. You must have previously downloaded the model and stored it in a PVC.",
+    subtitle = "Register a custom foundation model with WatsonX AI. Select a downloaded model or manually enter details.",
     content = formContent,
     size = "lg",
     id = Some("create-foundation-model-modal")
@@ -562,6 +616,8 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
 
   // Public methods
   def open(): Unit = {
+    // New: Fetch downloaded models when modal opens
+    fetchDownloadedModels()
     fetchPvcs()
     modal.open()
   }
@@ -575,7 +631,7 @@ class CreateFoundationModelModal(onSuccess: () => Unit) extends Component {
   val element: Element = modal.element
 }
 
-// Companion object for easy creation
+// Companion object for easy creation (no change)
 object CreateFoundationModelModal extends Component {
   def apply(onSuccess: () => Unit): CreateFoundationModelModal = new CreateFoundationModelModal(onSuccess)
 }

@@ -155,7 +155,19 @@ object WatsonxAIIFMTile extends Component {
 
                   // Refresh indicator overlay
                   child <-- isRefreshingVar.signal.map { isRefreshing =>
-                    if (isRefreshing) renderRefreshIndicator() else emptyNode
+                    if (isRefreshing) {
+                      renderRefreshIndicator()
+                    } else     {
+                      cds"button"(
+                        strattr("size"):="xs",
+                        onClick --> { _ =>
+                          println("Refresh button clicked!") // Optional: Add a print statement for debugging
+                          fetchData(true, true) // Call the refresh method from ReactiveComponent
+                        },
+                        // For now, no `onClick` yet, we'll add that next.
+                        "Refresh"
+                      )
+                    }
                   }
                 )
               }

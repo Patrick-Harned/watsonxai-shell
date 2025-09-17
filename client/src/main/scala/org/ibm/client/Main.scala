@@ -1,6 +1,7 @@
 package org.ibm.client
 
 import com.raquo.laminar.api.L.*
+import org.ibm.client.components.downloadedmodels.DownloadedModelDataTable
 import org.ibm.client.components.foundationmodels.FoundationModelDataTable
 import org.ibm.client.components.modeldownloads.ModelDownloaderDataTable
 import org.ibm.client.components.pvcs.PVCDataTable
@@ -45,12 +46,7 @@ object Main {
       case Route.PVCs =>
         PVCDataTable.render
       case Route.CustomFoundationModels => FoundationModelDataTable.render
-      case Route.Models =>
-        div(
-          h1("Foundation Models"),
-          p("Foundation models management coming soon...")
-          // TODO: Implement ModelsDataTable
-        )
+      case Route.DownloadedModels => DownloadedModelDataTable.render
     }
   }
 }

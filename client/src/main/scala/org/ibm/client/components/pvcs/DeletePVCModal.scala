@@ -2,7 +2,7 @@ package org.ibm.client.components
 
 import com.raquo.laminar.api.L.*
 import org.ibm.client.components.notifications.NotificationManager
-import org.ibm.client.components.pvcs.PVCDataTable.PVCDataRow
+import org.ibm.client.components.pvcs.PVCDataRow
 import org.ibm.tel.components.Modal
 import org.ibm.shared.PVC
 import sttp.capabilities.WebSockets

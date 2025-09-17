@@ -69,6 +69,14 @@ object UIShell extends Component {
             cds"side-nav-menu-item"(
               href := "javascript:void 0",
               className <-- Router.currentRouteSignal.map { route =>
+                if (route == Route.DownloadedModels) "cds--side-nav__link--current" else ""
+              },
+              onClick --> { _ => Router.navigateTo(Route.DownloadedModels) },
+              "Downloaded Models"
+            ),
+            cds"side-nav-menu-item"(
+              href := "javascript:void 0",
+              className <-- Router.currentRouteSignal.map { route =>
                 if (route == Route.CustomFoundationModels) "cds--side-nav__link--current" else ""
               },
               onClick --> { _ => Router.navigateTo(Route.CustomFoundationModels) },

@@ -13,7 +13,8 @@ case class ModelDownloaderPod(
                                localDirName: String,
                                namespace: String = "cpd",
                                status: Option[PodStatus] = None,
-                               createdAt: Option[Instant] = None
+                               createdAt: Option[Instant] = None,
+                               trackedModelId: Option[String] = None
                              )
 
 case class PodStatus(

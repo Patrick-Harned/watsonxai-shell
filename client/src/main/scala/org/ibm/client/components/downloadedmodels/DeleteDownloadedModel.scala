@@ -1,9 +1,10 @@
-package org.ibm.client.components.modeldownloads
+package org.ibm.client.components.downloadedmodels
 
 import com.raquo.laminar.api.L.*
-import org.ibm.client.components.{Component, cds}
+import org.ibm.client.components
 import org.ibm.client.components.notifications.NotificationManager
-import org.ibm.client.components.modeldownloads.ModelDownloaderDataRow
+import org.ibm.client.components.{Component, cds}
+import org.ibm.shared.DownloadedModel
 import org.ibm.tel.components.Modal
 import sttp.capabilities.WebSockets
 import sttp.client3.*
@@ -11,21 +12,21 @@ import sttp.client3.*
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class DeleteModelDownloaderModal(onSuccess: () => Unit) extends Component {
+class DeleteDownloadedModelModal(onSuccess: () => Unit) extends Component {
 
   val backend: SttpBackend[Future, WebSockets] = FetchBackend()
 
   // Modal state
   val isSubmittingVar = Var(false)
-  val podsToDeleteVar = Var[List[ModelDownloaderDataRow]](List.empty)
+  val podsToDeleteVar = Var[List[DownloadedModel]](List.empty)
   val errorVar = Var[Option[String]](None)
 
-  def setPodsToDelete(pods: List[ModelDownloaderDataRow]): Unit = {
+  def setPodsToDelete(pods: List[DownloadedModel]): Unit = {
     podsToDeleteVar.set(pods)
     errorVar.set(None)
   }
 
-  def deleteModelDownloaderPods(): Unit = {
+  def deleteDownloadedModelPods(): Unit = {
     val pods = podsToDeleteVar.now()
     if (pods.isEmpty) return
 
@@ -35,12 +36,12 @@ class DeleteModelDownloaderModal(onSuccess: () => Unit) extends Component {
     // Delete model downloader pods one by one
     val deleteFutures = pods.map { pod =>
       basicRequest
-        .delete(uri"/api/watsonxai/modeldownloaders/${pod.name}?namespace=${pod.namespace}")
+        .delete(uri"/api/watsonxai/DownloadedModels")
         .response(asString)
         .send(backend)
         .map(_.body match {
-          case Right(_) => Right(pod.name)
-          case Left(err) => Left(s"${pod.name}: $err")
+          case Right(_) => Right(pod.modelRepo)
+          case Left(err) => Left(s"${pod.modelRepo}: $err")
         })
     }
 
@@ -105,13 +106,11 @@ class DeleteModelDownloaderModal(onSuccess: () => Unit) extends Component {
         child <-- podsToDeleteVar.signal.map { pods =>
           if (pods.length == 1) {
             div(
-              p(s"Are you sure you want to delete the model downloader '${pods.head.name}'?"),
+              p(s"Are you sure you want to delete the model downloader '${pods.head.modelRepo}'?"),
               div(
                 className := "pod-details",
                 p(s"Model: ${pods.head.modelRepo}"),
-                p(s"PVC: ${pods.head.pvc}"),
                 p(s"Status: ${pods.head.status}"),
-                p(s"Namespace: ${pods.head.namespace}")
               ),
               p(
                 className := "delete-warning-text",
@@ -126,7 +125,7 @@ class DeleteModelDownloaderModal(onSuccess: () => Unit) extends Component {
                 pods.map { pod =>
                   div(
                     className := "pod-item",
-                    s"• ${pod.name} (${pod.modelRepo}) - Status: ${pod.status}"
+                    s"(${pod.modelRepo}) - Status: ${pod.status}"
                   )
                 }
               ),
@@ -157,13 +156,13 @@ class DeleteModelDownloaderModal(onSuccess: () => Unit) extends Component {
         ).map { case (isSubmitting, pods) =>
           isSubmitting || pods.isEmpty
         },
-        onClick --> { _ => deleteModelDownloaderPods() },
+        onClick --> { _ => deleteDownloadedModelPods() },
         child.text <-- isSubmittingVar.signal.map(if (_) "Deleting..." else "Delete")
       )
     )
   )
 
-  // Create the modal - following the same pattern as CreateModelDownloaderModal
+  // Create the modal - following the same pattern as CreateDownloadedModelModal
   private lazy val modal = new Modal(
     title = "Delete Model Downloaders",
     subtitle = "", // We'll handle the subtitle in the content
@@ -173,7 +172,7 @@ class DeleteModelDownloaderModal(onSuccess: () => Unit) extends Component {
   )
 
   // Public methods
-  def open(pods: List[ModelDownloaderDataRow]): Unit = {
+  def open(pods: List[DownloadedModel]): Unit = {
     setPodsToDelete(pods)
     modal.open()
   }
@@ -187,6 +186,6 @@ class DeleteModelDownloaderModal(onSuccess: () => Unit) extends Component {
 }
 
 // Companion object for easy creation
-object DeleteModelDownloaderModal extends Component {
-  def apply(onSuccess: () => Unit): DeleteModelDownloaderModal = new DeleteModelDownloaderModal(onSuccess)
+object DeleteDownloadedModelModal extends Component {
+  def apply(onSuccess: () => Unit): DeleteDownloadedModelModal = new DeleteDownloadedModelModal(onSuccess)
 }

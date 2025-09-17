@@ -13,7 +13,7 @@ import org.http4s.{HttpApp, HttpRoutes, StaticFile}
 import org.ibm.routes.WatsonxAIIFMEndpoints.watsonxAIIFMAllRoutes
 import org.ibm.routes.{ModelDownloaderEndpoints, PVCEndpoints, WatsonxAIIFMEndpoints}
 import org.ibm.shared.{ConsoleInfo, WatsonxAIIFM}
-import org.ibm.watsonxaiifm.{Client, ConsoleClient}
+import org.ibm.watsonxaiifm.{Client, ConsoleClient, ModelDownloaderClient}
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
@@ -89,7 +89,8 @@ object Main extends IOApp {
   private val httpApp: HttpApp[IO] = Router[IO](
     "/"    -> allRoutes
   ).orNotFound
-
+  
+  ModelDownloaderClient;
   // 5. Launch Ember server
   override def run(args: List[String]): IO[ExitCode] =
     EmberServerBuilder

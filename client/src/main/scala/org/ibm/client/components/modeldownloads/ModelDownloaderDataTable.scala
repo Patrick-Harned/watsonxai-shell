@@ -4,30 +4,32 @@ import com.raquo.laminar.api.L.*
 import org.ibm.client.components.cds
 import org.ibm.client.components.skeleton.SkeletonComponents
 import org.ibm.client.api.AppDataContext
-import org.ibm.shared.{ModelDownloaderPod, ConsoleInfo}
+import org.ibm.shared.{ConsoleInfo, ModelDownloaderPod}
 
 import scala.concurrent.Future
-import org.ibm.client.components.datatable.{BatchAction, TableConfig, TableRow, toDataTable}
+import org.ibm.client.components.datatable.{BatchAction, DataTable, TableConfig, TableRow}
 import org.ibm.client.components.pvcs.PVCDataTable.deleteIcon
 import org.ibm.client.components.reactive.ReactiveComponent
 import sttp.capabilities.WebSockets
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object ModelDownloaderDataTable extends ReactiveComponent[ModelDownloaderDataTable.ModelDownloaderData] {
+case class ModelDownloaderData(pods: List[ModelDownloaderPod], consoleUrl: String)
+
+case class ModelDownloaderDataRow(
+                                   name: String,
+                                   modelRepo: String,
+                                   pvc: String,
+                                   status: String,
+                                   namespace: String,
+                                   createdAt: String,
+                                   logUrl: String
+                                 )
+
+object ModelDownloaderDataTable extends ReactiveComponent[ModelDownloaderData] with DataTable[ModelDownloaderDataRow] {
 
   // Case class to hold both pods and console URL
-  case class ModelDownloaderData(pods: List[ModelDownloaderPod], consoleUrl: String)
 
-  case class ModelDownloaderDataRow(
-                                     name: String,
-                                     modelRepo: String,
-                                     pvc: String,
-                                     status: String,
-                                     namespace: String,
-                                     createdAt: String,
-                                     logUrl: String
-                                   )
 
   // Create modal instances once
   val createModelDownloaderModal = CreateModelDownloaderModal(
@@ -157,7 +159,7 @@ object ModelDownloaderDataTable extends ReactiveComponent[ModelDownloaderDataTab
       ),
 
       // Data table
-      dataRows.toDataTable(tableConfig)
+      render(dataRows, tableConfig)
     )
   }
 
@@ -242,4 +244,12 @@ object ModelDownloaderDataTable extends ReactiveComponent[ModelDownloaderDataTab
       svg.d := "M26 24v4H6v-4H4v4a2 2 0 002 2h20a2 2 0 002-2v-4zM26 14l-1.41-1.41L17 20.17V2h-2v18.17l-7.59-7.58L6 14l10 10 10-10z"
     )
   )
+
+  /**
+   * Abstract method to be implemented by concrete DataTable instances.
+   * This provides a unique key for the root `cds-table` element,
+   * which helps Laminar and Carbon Web Components manage their lifecycle
+   * and prevents state bleeding when switching between different table views.
+   */
+  override protected def getTableKey: String = "model-downloader"
 }

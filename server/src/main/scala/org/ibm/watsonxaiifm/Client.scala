@@ -5,10 +5,13 @@ import io.kubernetes.client.util.Config
 import org.ibm.shared.{CustomFoundationModel, WatsonxAIIFM}
 import io.circe.parser.*
 import io.circe.syntax.*
-import io.circe.{Json}
+import io.circe.Json
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kubernetes.client.openapi.ApiException
+import okhttp3.Request
+import org.apache.http.client.methods.RequestBuilder
 
+import java.io.IOException
 import scala.util.{Failure, Success, Try}
 
 object Client {
@@ -85,31 +88,82 @@ object Client {
       )
     )
 
-    // Convert to Java List for the patch operation
     val patchString = jsonPatch.noSpaces
-    val patchList = jackson.readValue(patchString, classOf[java.util.List[Object]])
-
     println(s"Sending JSON Patch: $patchString")
 
-    try {
-      // Perform the JSON patch operation
-      customObjectsApi.patchNamespacedCustomObject(
-        GROUP,
-        VERSION,
-        NAMESPACE,
-        PLURAL,
-        NAME,
-        patchList
-      ).execute()
+    // Get the underlying HTTP client
+    val apiClient = customObjectsApi.getApiClient
+    val httpClient = apiClient.getHttpClient
 
-      println(s"✅ Successfully removed model at index $index using JSON Patch")
-    } catch {
-      case ex: ApiException =>
+    // Construct the URL for the custom resource
+    val baseUrl = apiClient.getBasePath
+    val url = s"$baseUrl/apis/$GROUP/$VERSION/namespaces/$NAMESPACE/$PLURAL/$NAME"
+
+    // Create the request with proper JSON Patch headers
+    val requestBody = okhttp3.RequestBody.create(
+      okhttp3.MediaType.parse("application/json-patch+json"),
+      patchString
+    )
+    val requestBuilder = new okhttp3.Request.Builder()
+      .url(url)
+      .patch(requestBody)
+      .addHeader("Content-Type", "application/json-patch+json")
+      .addHeader("Accept", "application/json")
+    val authHeaders = apiClient.getAuthentications
+    authHeaders.forEach { case (_, auth) =>
+      auth match {
+        case bearerAuth: io.kubernetes.client.openapi.auth.HttpBearerAuth =>
+          val token = bearerAuth.getBearerToken
+          if (token != null && token.nonEmpty) {
+            requestBuilder.addHeader("Authorization", s"Bearer $token")
+          }
+        case apiKeyAuth: io.kubernetes.client.openapi.auth.ApiKeyAuth =>
+          val apiKey = apiKeyAuth.getApiKey
+          val keyPrefix = apiKeyAuth.getApiKeyPrefix
+          if (apiKey != null && apiKey.nonEmpty) {
+            val headerValue = if (keyPrefix != null && keyPrefix.nonEmpty) {
+              s"$keyPrefix $apiKey"
+            } else {
+              apiKey
+            }
+            requestBuilder.addHeader(apiKeyAuth.getLocation match {
+              case "header" => apiKeyAuth.getParamName
+              case _ => "Authorization"
+            }, headerValue)
+          }
+        case _ => // Handle other auth types if needed
+      }
+    }
+    
+    val request = requestBuilder.build()
+
+    // Add authentication headers if present
+    val authenticatedRequest = httpClient.newCall(request)
+    
+    try {
+      // Execute the request
+      val response = authenticatedRequest.execute()
+
+      if (!response.isSuccessful) {
+        val responseBody = if (response.body() != null) response.body().string() else "No response body"
         throw new RuntimeException(
-          s"JSON Patch failed [code=${ex.getCode}]: ${ex.getResponseBody}", ex
+          s"JSON Patch failed [code=${response.code()}]: $responseBody"
         )
+      }
+
+      response.close()
+      println(s"✅ Successfully removed model at index $index using JSON Patch")
+
+    } catch {
+      case ex: IOException =>
+        throw new RuntimeException(s"Network error during JSON Patch operation: ${ex.getMessage}", ex)
+      case ex: RuntimeException =>
+        throw ex
+      case ex: Exception =>
+        throw new RuntimeException(s"Unexpected error during JSON Patch operation: ${ex.getMessage}", ex)
     }
   }
+
 
   // Add a new custom foundation model using JSON Patch
   def addCustomFoundationModel(newModel: CustomFoundationModel): Try[Unit] = Try {
@@ -123,26 +177,78 @@ object Client {
     )
 
     val patchString = jsonPatch.noSpaces
-    val patchList = jackson.readValue(patchString, classOf[java.util.List[Object]])
-
     println(s"Sending JSON Patch: $patchString")
 
-    try {
-      customObjectsApi.patchNamespacedCustomObject(
-        GROUP,
-        VERSION,
-        NAMESPACE,
-        PLURAL,
-        NAME,
-        patchList
-      ).execute()
+    // Get the underlying HTTP client
+    val apiClient = customObjectsApi.getApiClient
+    val httpClient = apiClient.getHttpClient
 
-      println(s"✅ Successfully added model '${newModel.model_id}' using JSON Patch")
-    } catch {
-      case ex: ApiException =>
+    // Construct the URL for the custom resource
+    val baseUrl = apiClient.getBasePath
+    val url = s"$baseUrl/apis/$GROUP/$VERSION/namespaces/$NAMESPACE/$PLURAL/$NAME"
+
+    // Create the request with proper JSON Patch headers
+    val requestBody = okhttp3.RequestBody.create(
+      okhttp3.MediaType.parse("application/json-patch+json"),
+      patchString
+    )
+    val requestBuilder = new okhttp3.Request.Builder()
+      .url(url)
+      .patch(requestBody)
+      .addHeader("Content-Type", "application/json-patch+json")
+      .addHeader("Accept", "application/json")
+    val authHeaders = apiClient.getAuthentications
+    authHeaders.forEach { case (_, auth) =>
+      auth match {
+        case bearerAuth: io.kubernetes.client.openapi.auth.HttpBearerAuth =>
+          val token = bearerAuth.getBearerToken
+          if (token != null && token.nonEmpty) {
+            requestBuilder.addHeader("Authorization", s"Bearer $token")
+          }
+        case apiKeyAuth: io.kubernetes.client.openapi.auth.ApiKeyAuth =>
+          val apiKey = apiKeyAuth.getApiKey
+          val keyPrefix = apiKeyAuth.getApiKeyPrefix
+          if (apiKey != null && apiKey.nonEmpty) {
+            val headerValue = if (keyPrefix != null && keyPrefix.nonEmpty) {
+              s"$keyPrefix $apiKey"
+            } else {
+              apiKey
+            }
+            requestBuilder.addHeader(apiKeyAuth.getLocation match {
+              case "header" => apiKeyAuth.getParamName
+              case _ => "Authorization"
+            }, headerValue)
+          }
+        case _ => // Handle other auth types if needed
+      }
+    }
+
+    val request = requestBuilder.build()
+
+    // Add authentication headers if present
+    val authenticatedRequest = httpClient.newCall(request)
+
+    try {
+      // Execute the request
+      val response = authenticatedRequest.execute()
+
+      if (!response.isSuccessful) {
+        val responseBody = if (response.body() != null) response.body().string() else "No response body"
         throw new RuntimeException(
-          s"JSON Patch failed [code=${ex.getCode}]: ${ex.getResponseBody}", ex
+          s"JSON Patch failed [code=${response.code()}]: $responseBody"
         )
+      }
+
+      response.close()
+      println(s"✅ Successfully added model ${newModel.model_id} using JSON Patch")
+
+    } catch {
+      case ex: IOException =>
+        throw new RuntimeException(s"Network error during JSON Patch operation: ${ex.getMessage}", ex)
+      case ex: RuntimeException =>
+        throw ex
+      case ex: Exception =>
+        throw new RuntimeException(s"Unexpected error during JSON Patch operation: ${ex.getMessage}", ex)
     }
   }
 

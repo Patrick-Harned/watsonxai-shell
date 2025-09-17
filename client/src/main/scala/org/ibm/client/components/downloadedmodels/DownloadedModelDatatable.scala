@@ -1,48 +1,46 @@
-package org.ibm.client.components.foundationmodels
+package org.ibm.client.components.downloadedmodels
 
 import com.raquo.laminar.api.L.*
-import org.ibm.client.api.AppDataContext
 import org.ibm.client.components.cds
 import org.ibm.client.components.datatable.{BatchAction, DataTable, TableConfig, TableRow}
 import org.ibm.client.components.pvcs.PVCDataTable.deleteIcon
 import org.ibm.client.components.reactive.ReactiveComponent
 import org.ibm.client.components.skeleton.SkeletonComponents
-import org.ibm.shared.{ConsoleInfo, CustomFoundationModel, WatsonxAIIFM}
+import org.ibm.shared.{ConsoleInfo, DownloadedModel}
 import sttp.capabilities.WebSockets
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-case class FoundationModelData(data: List[CustomFoundationModel], consoleUrl: String)
+case class DownloadedModelData(data: List[DownloadedModel], consoleUrl: String)
 
-object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] with DataTable[CustomFoundationModel] {
+
+
+object DownloadedModelDataTable extends ReactiveComponent[DownloadedModelData] with DataTable[DownloadedModel] {
 
   // Case class to hold both pods and console URL
 
 
-  // Create modal instances once
-  val createFoundationModelModal = CreateFoundationModelModal(
-    onSuccess = () => refresh(showNotification = false)
-  )
 
-  val deleteFoundationModelModal = new DeleteFoundationModelModal(
+
+  val deleteDownloadedModelModal = new DeleteDownloadedModelModal(
     onSuccess = () => refresh(showNotification = false)
   )
 
   // Fetch both pods and console URL - NO MORE PLACEHOLDERS
-  protected def fetchData(): Future[FoundationModelData] = {
+  protected def fetchData(): Future[DownloadedModelData] = {
     import sttp.client3.*
     import sttp.client3.circe.*
     val backend: SttpBackend[Future, WebSockets] = FetchBackend()
 
     for {
       // Fetch model downloaders
-      rows <- basicRequest
-        .get(uri"/api/watsonxaiifm")
-        .response(asJson[WatsonxAIIFM])
+      pods <- basicRequest
+        .get(uri"/api/downloaded_models")
+        .response(asJson[List[DownloadedModel]])
         .send(backend)
         .map(_.body match {
-          case Right(p) => p.spec.custom_foundation_models
+          case Right(p) => p
           case Left(error) => throw new Exception(s"Failed to fetch model downloaders: $error")
         })
 
@@ -55,7 +53,7 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] w
           case Right(info) => info.url
           case Left(error) => throw new Exception(s"Failed to fetch console URL: $error")
         })
-    } yield FoundationModelData(rows, consoleUrl)
+    } yield DownloadedModelData(pods, consoleUrl)
   }
 
   protected def renderSkeleton(): Element = {
@@ -67,62 +65,41 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] w
     )
   }
 
-  def batchDeleteFoundationModels(selectedRows: List[TableRow]): Unit = {
-    val rowsToDelete = selectedRows.map(_.data.asInstanceOf[CustomFoundationModel])
-    deleteFoundationModelModal.open(rowsToDelete)
+  def batchDeleteDownloadedModels(selectedRows: List[TableRow]): Unit = {
+    val podsToDelete = selectedRows.map(_.data.asInstanceOf[DownloadedModel])
+    deleteDownloadedModelModal.open(podsToDelete)
   }
 
   // Updated to use the actual fetched data
-  protected def renderContent(data: FoundationModelData): Element = {
-    val FoundationModelData(rows, consoleUrl) = data
+  protected def renderContent(data: DownloadedModelData): Element = {
+    val DownloadedModelData(pods, consoleUrl) = data
 
     val batchActions = List(
       BatchAction(
         id = "delete",
         label = "Delete",
         icon = Some(deleteIcon),
-        handler = batchDeleteFoundationModels
-      ),
-      BatchAction(
-        id = "refresh-status",
-        label = "Refresh Status",
-        icon = Some(refreshIcon),
-        handler = (selectedRows: List[TableRow]) => {
-          selectedRows.foreach { row =>
-            val rowData = row.data.asInstanceOf[CustomFoundationModel]
-            refreshPodStatus(rowData.model_id, rowData.location.pvc_name)
-          }
-        }
+        handler = batchDeleteDownloadedModels
       )
     )
 
     val tableConfig = TableConfig(
-      title = "Custom Foundation Models",
-      description = Some("Custom Foundation Models loaded and registered"),
+      title = "Downloaded models",
+      description = Some("Models that have been downloaded to your cluster"),
       batchActions = batchActions,
       searchable = true,
       selectable = true
     )
 
-    // Using the REAL console URL from the API
 
 
     div(
       // Add the modal elements to the DOM
-      createFoundationModelModal.element,
-      deleteFoundationModelModal.element,
+      deleteDownloadedModelModal.element,
 
       // Action bar
       div(
         className := "action-bar",
-        cds"button"(
-          onClick --> { _ =>
-            println("Opening create modal...")
-            createFoundationModelModal.open()
-          },
-          downloadIcon,
-          "Register a Model"
-        ),
         cds"button"(
           strattr("kind") := "secondary",
           disabled <-- isRefreshingSignal,
@@ -138,7 +115,7 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] w
       ),
 
       // Data table
-      render(rows, tableConfig)
+      render(pods, tableConfig)
     )
   }
 
@@ -146,18 +123,12 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] w
     div(
       className := "empty-state",
       // Add modal elements here too
-      createFoundationModelModal.element,
-      deleteFoundationModelModal.element,
+      deleteDownloadedModelModal.element,
 
-      h3("No Custom Foundation Models found"),
-      p("You have not yet registered any custom foundation models with watsonx.ai."),
+      h3("No Downloaded Models"),
+      p("No downloaded models were found"),
       div(
         className := "empty-state-actions",
-        cds"button"(
-          onClick --> { _ => createFoundationModelModal.open() },
-          downloadIcon,
-          " Register a model"
-        ),
         cds"button"(
           strattr("kind") := "secondary",
           onClick --> { _ => refresh() },
@@ -168,7 +139,7 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] w
     )
   }
 
-  protected def getComponentName(): String = "Custom Foundation Models"
+  protected def getComponentName(): String = "Model Downloaders"
 
   private def refreshPodStatus(name: String, namespace: String): Unit = {
     performAction(
@@ -178,8 +149,8 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] w
         val backend: SttpBackend[Future, WebSockets] = FetchBackend()
 
         basicRequest
-          .get(uri"/api/watsonxai/FoundationModels/$name/status?namespace=$namespace")
-          .response(asJson[CustomFoundationModel])
+          .get(uri"/api/watsonxai/downloaded_models")
+          .response(asJson[DownloadedModel])
           .send(backend)
           .map(_.body match {
             case Right(pod) => pod
@@ -230,5 +201,5 @@ object FoundationModelDataTable extends ReactiveComponent[FoundationModelData] w
    * which helps Laminar and Carbon Web Components manage their lifecycle
    * and prevents state bleeding when switching between different table views.
    */
-  override protected def getTableKey: String = "foundation-model-data-table"
+  override protected def getTableKey: String = "downloaded-model"
 }

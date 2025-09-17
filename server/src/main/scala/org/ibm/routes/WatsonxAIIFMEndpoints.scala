@@ -3,7 +3,8 @@ package org.ibm.routes
 import cats.effect.IO
 import cats.syntax.all.*
 import org.http4s.HttpRoutes
-import org.ibm.shared.{CustomFoundationModel, WatsonxAIIFM}
+import org.ibm.database.Database
+import org.ibm.shared.{CustomFoundationModel, DownloadedModel, WatsonxAIIFM}
 import org.ibm.watsonxaiifm.Client
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
@@ -35,7 +36,21 @@ object WatsonxAIIFMEndpoints {
         }
       })
   }
+  private val getDownloadedModels: ServerEndpoint[Any, IO] = {
+    endpoint.get
+      .in("api" / "downloaded_models")
+      .out(jsonBody[List[DownloadedModel]])
+      .errorOut(stringBody)
+      .serverLogic(request => {
+        IO {
+          Database.getModels match {
+            case Failure(exception) => Left(exception.getMessage)
+            case Success(value) => Right(value)
+          }
 
+        }
+      })
+  }
   private val createwatsonxAIIFMEndpoint: ServerEndpoint[Any, IO] = {
     endpoint.post
       .in("api" / "watsonxaiifm")
@@ -74,15 +89,14 @@ object WatsonxAIIFMEndpoints {
         IO {
           try {
             println(s"Deleting model registration : ${model_id} with location class")
-            Client.removeCustomFoundationModel(model_id).toOption match {
-              case Some(model) =>
+            Client.removeCustomFoundationModel(model_id) match {
+              case Success(model) =>
                 println(s"Successfully dweleted model registration : ${model_id}")
                 Client.getWatsonxAIIFM match {
                   case Failure(exception) => Left(s"Failed to update the cr: ${exception.getMessage}")
                   case Success(value) => Right(value)
                 }
-              case None =>
-                Left("Failed to delete the model registration - unknown error")
+              case Failure(exception) => Left(s"Failed to delete the model registration - ${exception.getMessage}")
             }
           } catch {
             case ex: Exception =>
@@ -97,8 +111,9 @@ object WatsonxAIIFMEndpoints {
   private val createwatsonxAIIFMRoute: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(createwatsonxAIIFMEndpoint)
   private val deletewatsonxAIIFMRoute: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(deletewatsonxAIIFMEndpoint) // FIXED: Use correct endpoint
   private val watsonxAIIFMRoutes: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(watsonxAIIFMEndpoint)
+  private val getDownloadedModelsRoutes: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(getDownloadedModels)
   // FIXED: Combine WatsonxAIIFM routes properly
-  val watsonxAIIFMAllRoutes = createwatsonxAIIFMRoute <+> deletewatsonxAIIFMRoute <+> watsonxAIIFMRoutes
+  val watsonxAIIFMAllRoutes = createwatsonxAIIFMRoute <+> deletewatsonxAIIFMRoute <+> watsonxAIIFMRoutes <+> getDownloadedModelsRoutes
   // FIXED: Remove duplicate allRoutes definition and include the delete route
 
 }
