@@ -35,6 +35,11 @@ object Route {
     val title = "Downloaded Models"
   }
 
+  case object HardwareSpecifications extends Route {
+    val path = "/hardwarespecifications"
+    val title = "Hardware Specifications"
+  }
+
   // Helper to parse path to route
   def fromPath(path: String): Route = path match {
     case "/" => Dashboard
@@ -43,9 +48,10 @@ object Route {
     case "/modeldownloads" => ModelDownloads             // Correct mapping for ModelDownloads
     case "/customfoundationmodels" => CustomFoundationModels // Correct mapping for CustomFoundationModels
     case "/downloadedmodels" => DownloadedModels // Correct mapping for CustomFoundationModels
+    case "/hardwarespecifications" => HardwareSpecifications // Correct mapping for CustomFoundationModels
 
     case _ => Dashboard // Default route for any unhandled path
   }
 
-  val allRoutes: List[Route] = List(Dashboard, PVCs, StorageClasses, ModelDownloads, CustomFoundationModels,DownloadedModels) // Ensure all routes are listed
+  val allRoutes: List[Route] = List(Dashboard, PVCs, StorageClasses, ModelDownloads, CustomFoundationModels,DownloadedModels, HardwareSpecifications) // Ensure all routes are listed
 }

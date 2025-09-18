@@ -3,9 +3,11 @@ package org.ibm.client
 import com.raquo.laminar.api.L.*
 import org.ibm.client.components.downloadedmodels.DownloadedModelDataTable
 import org.ibm.client.components.foundationmodels.FoundationModelDataTable
+import org.ibm.client.components.hardwarespecs.HardwareSpecDataTable
 import org.ibm.client.components.modeldownloads.ModelDownloaderDataTable
 import org.ibm.client.components.pvcs.PVCDataTable
 import org.ibm.client.components.{UIShell, WatsonxAIIFMTile}
+import org.ibm.client.routes.Route.HardwareSpecifications
 import org.ibm.client.routes.{Route, Router}
 import org.scalajs.dom
 
@@ -47,6 +49,7 @@ object Main {
         PVCDataTable.render
       case Route.CustomFoundationModels => FoundationModelDataTable.render
       case Route.DownloadedModels => DownloadedModelDataTable.render
+      case Route.HardwareSpecifications => HardwareSpecDataTable.render
     }
   }
 }

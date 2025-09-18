@@ -48,9 +48,13 @@ lazy val server = project
       "org.http4s"      %% "http4s-circe"          % "0.23.30",
    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.20.0",
       "io.kubernetes" % "client-java" % "24.0.0",
-      "org.xerial" % "sqlite-jdbc" % "3.50.3.0", // Or a newer version
+      "com.softwaremill.sttp.client3" %% "circe" % "3.11.0",
+      "com.softwaremill.sttp.client3" %% "async-http-client-backend-future" % "3.11.0",
 
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.44"
+      "org.xerial" % "sqlite-jdbc" % "3.50.3.0", // Or a newer version
+      "io.circe"        %% "circe-core"    % "0.14.14",
+      "io.circe"        %% "circe-generic" % "0.14.14",
+"com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.11.44"
     ),
     Compile / resourceGenerators += Def.task {
       // 1. Grab the actual Scala version string

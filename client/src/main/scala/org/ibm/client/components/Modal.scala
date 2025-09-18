@@ -15,7 +15,8 @@ class Modal(
              subtitle: String = "",
              content: Element,
              size: String = "lg",
-             id: Option[String] = None // Allow custom ID
+             id: Option[String] = None, // Allow custom ID
+           has_scrolling:Boolean = false
            ) extends Component {
 
   // Generate unique ID if not provided
@@ -37,6 +38,7 @@ class Modal(
       idAttr := modalId, // ✅ Add unique ID to the modal
       //strattr("has-scrolling-content") :="",
       // Target THIS specific modal by ID
+      strattr("has-scrolling-content") :="",
       isOpenSignal --> { isOpen =>
         val modalElement = dom.document.getElementById(modalId).asInstanceOf[js.Dynamic] // ✅ Use specific ID
         if (modalElement != null) {

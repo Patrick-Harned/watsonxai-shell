@@ -83,6 +83,20 @@ object UIShell extends Component {
               "Custom Foundation Models"
             )
           ),
+          cds"side-nav-menu"(
+            strattr("title") := "Deployment",
+
+            cds"side-nav-menu-item"(
+              href := "javascript:void 0",
+              className <-- Router.currentRouteSignal.map { route =>
+                if (route == Route.HardwareSpecifications) "cds--side-nav__link--current" else ""
+              },
+              onClick --> { _ => Router.navigateTo(Route.HardwareSpecifications) },
+              "Hardware Specifications"
+            )
+          )
+          
+          ,
 
         )
       )

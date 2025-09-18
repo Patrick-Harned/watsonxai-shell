@@ -11,7 +11,7 @@ import org.http4s.server.Router
 import org.http4s.server.staticcontent.*
 import org.http4s.{HttpApp, HttpRoutes, StaticFile}
 import org.ibm.routes.WatsonxAIIFMEndpoints.watsonxAIIFMAllRoutes
-import org.ibm.routes.{ModelDownloaderEndpoints, PVCEndpoints, WatsonxAIIFMEndpoints}
+import org.ibm.routes.{HardwareSpecEndpoints, ModelDownloaderEndpoints, PVCEndpoints, WatsonxAIIFMEndpoints}
 import org.ibm.shared.{ConsoleInfo, WatsonxAIIFM}
 import org.ibm.watsonxaiifm.{Client, ConsoleClient, ModelDownloaderClient}
 import sttp.tapir.*
@@ -58,7 +58,7 @@ object Main extends IOApp {
         .getOrElseF(NotFound())
   }
   // In your ModelDownloaderEndpoints
-  val getConsoleURLEndpoint: ServerEndpoint[Any, IO] =
+  private val getConsoleURLEndpoint: ServerEndpoint[Any, IO] =
     endpoint.get
       .in("api" / "watsonxai" / "console-url")
       .out(jsonBody[ConsoleInfo])
@@ -76,7 +76,7 @@ object Main extends IOApp {
           }
         }
       }
-  val consoleUrlServerEndpoint =   Http4sServerInterpreter[IO]().toRoutes(getConsoleURLEndpoint)
+  private val consoleUrlServerEndpoint =   Http4sServerInterpreter[IO]().toRoutes(getConsoleURLEndpoint)
 
   // 4. Compose everything
   private val allRoutes: HttpRoutes[IO] =
@@ -85,7 +85,8 @@ object Main extends IOApp {
       watsonxAIIFMAllRoutes <+> // FIXED: Use the combined routes
       PVCEndpoints.allWatsonxAIEndpoints <+>
       ModelDownloaderEndpoints.allModelDownloaderEndpoints <+>
-      consoleUrlServerEndpoint
+      consoleUrlServerEndpoint <+> HardwareSpecEndpoints.allHardwareSpecEndpoints
+      
   private val httpApp: HttpApp[IO] = Router[IO](
     "/"    -> allRoutes
   ).orNotFound

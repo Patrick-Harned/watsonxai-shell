@@ -87,8 +87,8 @@ object ToTreeNode:
 
 object TreeView {
 
-  def render(node: TreeNode, level: Int = 0): Element = {
-    val isExpandedVar = Var(false)
+  def render(node: TreeNode, level: Int = 0, expanded: Boolean=true): Element = {
+    val isExpandedVar = Var(expanded)
     val hasChildren = node.children.nonEmpty
 
     div(
